@@ -67,6 +67,8 @@
 
 - (void)updateContentSize;
 
+- (void)setup; // Hsoi 11-Jul-2012 - making it public so our subclass can invoke it
+
 @end
 
 //==========================================================
@@ -88,6 +90,8 @@ typedef enum {
 @property (nonatomic, assign) BOOL removesTokensOnEndEditing;
 @property (nonatomic, readonly) int numberOfLines;
 @property (nonatomic, strong) NSCharacterSet * tokenizingCharacters;
+
+- (void)setup; // Hsoi 11-Jul-2012 - making it public so our subclass can invoke it
 
 - (void)addToken:(TIToken *)title;
 - (TIToken *)addTokenWithTitle:(NSString *)title;

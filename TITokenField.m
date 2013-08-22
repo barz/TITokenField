@@ -7,6 +7,7 @@
 //
 
 #import "TITokenField.h"
+#import "NSString+BZExtensions.h"   // Hsoi 2013-08-19 - not ideal to use our own solution, but here we are.
 #import <QuartzCore/QuartzCore.h>
 
 @interface TITokenField ()
@@ -18,7 +19,7 @@
 //==========================================================
 
 @interface TITokenFieldView (Private)
-- (void)setup;
+//- (void)setup; // Hsoi 11-Jul-2012 - making it public so our subclass can invoke it
 - (NSString *)displayStringForRepresentedObject:(id)object;
 - (NSString *)searchResultStringForRepresentedObject:(id)object;
 - (void)setSearchResultsVisible:(BOOL)visible;
@@ -71,7 +72,7 @@
     _forcePickSearchResult = NO;
 	_resultsArray = [NSMutableArray array];
 	
-	_tokenField = [[TITokenField alloc] initWithFrame:CGRectMake(0, 0, self.bounds.size.width, 42)];
+    _tokenField = [self createTokenField];   // Hsoi 23-May-2012 - call -createTokenField instead of hard-coding in the creation. retained so I don't have to change other lines of code, to maintain existing code integrity.
 	[_tokenField addTarget:self action:@selector(tokenFieldDidBeginEditing:) forControlEvents:UIControlEventEditingDidBegin];
 	[_tokenField addTarget:self action:@selector(tokenFieldDidEndEditing:) forControlEvents:UIControlEventEditingDidEnd];
 	[_tokenField addTarget:self action:@selector(tokenFieldTextDidChange:) forControlEvents:UIControlEventEditingChanged];
@@ -336,7 +337,7 @@
 				__block BOOL shouldAdd = ![_resultsArray containsObject:sourceObject];
 				if (shouldAdd && !_showAlreadyTokenized){
 					
-					[_tokenField.tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx, BOOL *secondStop){
+					[_tokenField.tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx2, BOOL *secondStop){
 						if ([token.representedObject isEqual:sourceObject]){
 							shouldAdd = NO;
 							*secondStop = YES;
@@ -374,6 +375,17 @@
 	[self setDelegate:nil];
 }
 
+#pragma mark BarZ Additions
+// Hsoi 23-May-2012 - I hate to do this, but given the way the original author constructed things and how we need to do
+// a bit more customization outside of the author's planned structure well.... we have to hack some stuff.
+
+
+// Hsoi 23-May-2012 - creates our token field. Needed so our subclass can make its own token field.
+- (id)createTokenField {
+    return [[TITokenField alloc] initWithFrame:CGRectMake(0.0, 0.0, self.bounds.size.width, 42.0)];
+}
+
+
 @end
 
 //==========================================================
@@ -394,7 +406,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 @end
 
 @interface TITokenField (Private)
-- (void)setup;
+//- (void)setup; // Hsoi 11-Jul-2012 - making it public so our subclass can invoke it
 - (CGFloat)layoutTokensInternal;
 @end
 
@@ -542,7 +554,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 			}];
 			
 			untokenized = [self.tokenTitles componentsJoinedByString:@", "];
-			CGSize untokSize = [untokenized sizeWithFont:[UIFont systemFontOfSize:14]];
+			CGSize untokSize = [untokenized barz_sizeWithFont:[UIFont systemFontOfSize:14]];
 			CGFloat availableWidth = self.bounds.size.width - self.leftView.bounds.size.width - self.rightView.bounds.size.width;
 			
 			if (_tokens.count > 1 && untokSize.width > availableWidth){
@@ -984,7 +996,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 CGFloat const hTextPadding = 14;
 CGFloat const vTextPadding = 8;
 CGFloat const kDisclosureThickness = 2.5;
-UILineBreakMode const kLineBreakMode = UILineBreakModeTailTruncation;
+NSLineBreakMode const kLineBreakMode = NSLineBreakByTruncatingTail;
 
 @interface TIToken (Private)
 CGPathRef CGPathCreateTokenPath(CGSize size, BOOL innerPath);
@@ -1094,7 +1106,7 @@ CGPathRef CGPathCreateDisclosureIndicatorPath(CGPoint arrowPointFront, CGFloat h
 	}
 }
 
-#pragma Tint Color Convenience
+#pragma mark Tint Color Convenience
 
 + (UIColor *)blueTintColor {
 	return [UIColor colorWithRed:0.216 green:0.373 blue:0.965 alpha:1];
@@ -1118,7 +1130,7 @@ CGPathRef CGPathCreateDisclosureIndicatorPath(CGPoint arrowPointFront, CGFloat h
 		accessoryWidth += floorf(hTextPadding / 2);
 	}
 	
-	CGSize titleSize = [_title sizeWithFont:_font forWidth:(_maxWidth - hTextPadding - accessoryWidth) lineBreakMode:kLineBreakMode];
+	CGSize titleSize = [_title barz_sizeWithFont:_font forWidth:(_maxWidth - hTextPadding - accessoryWidth) lineBreakMode:kLineBreakMode];
 	CGFloat height = floorf(titleSize.height + vTextPadding);
 	
 	[self setFrame:((CGRect){self.frame.origin, {MAX(floorf(titleSize.width + hTextPadding + accessoryWidth), height - 3), height}})];
@@ -1228,13 +1240,13 @@ CGPathRef CGPathCreateDisclosureIndicatorPath(CGPoint arrowPointFront, CGFloat h
 	
 	CGColorSpaceRelease(colorspace);
 	
-	CGSize titleSize = [_title sizeWithFont:_font forWidth:(_maxWidth - hTextPadding - accessoryWidth) lineBreakMode:kLineBreakMode];
+	CGSize titleSize = [_title barz_sizeWithFont:_font forWidth:(_maxWidth - hTextPadding - accessoryWidth) lineBreakMode:kLineBreakMode];
 	CGFloat vPadding = floor((self.bounds.size.height - titleSize.height) / 2);
 	CGFloat titleWidth = ceilf(self.bounds.size.width - hTextPadding - accessoryWidth);
 	CGRect textBounds = CGRectMake(floorf(hTextPadding / 2), vPadding - 1, titleWidth, floorf(self.bounds.size.height - (vPadding * 2)));
 	
 	CGContextSetFillColorWithColor(context, (drawHighlighted ? _highlightedTextColor : _textColor).CGColor);
-	[_title drawInRect:textBounds withFont:_font lineBreakMode:kLineBreakMode];
+	[_title barz_drawInRect:textBounds withFont:_font lineBreakMode:kLineBreakMode];
 }
 
 CGPathRef CGPathCreateTokenPath(CGSize size, BOOL innerPath) {
