@@ -98,7 +98,15 @@
 		UITableViewController * tableViewController = [[UITableViewController alloc] initWithStyle:UITableViewStylePlain];
 		[tableViewController.tableView setDelegate:self];
 		[tableViewController.tableView setDataSource:self];
+        
+        // FIXME: Hsoi 2013-08-22 - This is my workaround for iOS7. Hopefully the original author will have their proper fix soon.
+        // Note: Apple's suggestion is to use UIViewController.preferredContentSize instead. I have no problem with that
+        // but as we don't presently have iPad support, it's not something I can really do or test. It's irrelevant to
+        // us right now. So for me, all I need to do is quiet down the compiler. Hence.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 		[tableViewController setContentSizeForViewInPopover:CGSizeMake(400, 400)];
+#pragma GCC diagnostic pop
 		
 		_resultsTable = tableViewController.tableView;
 		
