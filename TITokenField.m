@@ -332,20 +332,23 @@
 	searchString = [searchString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 	
 	if (searchString.length || _forcePickSearchResult){
+        
+        __weak TITokenFieldView* wself = self;
 		[_sourceArray enumerateObjectsUsingBlock:^(id sourceObject, NSUInteger idx, BOOL *stop){
-			
+			TITokenFieldView* sself = wself;
+            
 			NSString * query = [self searchResultStringForRepresentedObject:sourceObject];
 			NSString * querySubtitle = [self searchResultSubtitleForRepresentedObject:sourceObject];
-			if (!querySubtitle || !_searchSubtitles) querySubtitle = @"";
+			if (!querySubtitle || !sself.searchSubtitles) querySubtitle = @"";
 			
 			if ([query rangeOfString:searchString options:NSCaseInsensitiveSearch].location != NSNotFound ||
 				[querySubtitle rangeOfString:searchString options:NSCaseInsensitiveSearch].location != NSNotFound ||
-                (_forcePickSearchResult && searchString.length == 0)){
+                (sself.forcePickSearchResult && searchString.length == 0)){
 				
-				__block BOOL shouldAdd = ![_resultsArray containsObject:sourceObject];
-				if (shouldAdd && !_showAlreadyTokenized){
+				__block BOOL shouldAdd = ![sself->_resultsArray containsObject:sourceObject];
+				if (shouldAdd && !sself.showAlreadyTokenized){
 					
-					[_tokenField.tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx2, BOOL *secondStop){
+					[sself.tokenField.tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx2, BOOL *secondStop){
 						if ([token.representedObject isEqual:sourceObject]){
 							shouldAdd = NO;
 							*secondStop = YES;
@@ -353,7 +356,7 @@
 					}];
 				}
 				
-				if (shouldAdd) [_resultsArray addObject:sourceObject];
+				if (shouldAdd) [sself->_resultsArray addObject:sourceObject];
 			}
 		}];
 	}
@@ -735,26 +738,29 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 	_numberOfLines = 1;
 	_tokenCaret = (CGPoint){leftMargin, (topMargin - 1)};
 	
+    __weak TITokenField* wself = self;
 	[_tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx, BOOL *stop){
 		
-		[token setFont:self.font];
-		[token setMaxWidth:(self.bounds.size.width - rightMargin - (_numberOfLines > 1 ? hPadding : leftMargin))];
+        TITokenField* sself = wself;
+        
+		[token setFont:sself.font];
+		[token setMaxWidth:(sself.bounds.size.width - rightMargin - (sself.numberOfLines > 1 ? hPadding : leftMargin))];
 		
 		if (token.superview){
 			
-			if (_tokenCaret.x + token.bounds.size.width + rightMargin > self.bounds.size.width){
-				_numberOfLines++;
-				_tokenCaret.x = (_numberOfLines > 1 ? hPadding : leftMargin);
-				_tokenCaret.y += lineHeight;
+			if (sself->_tokenCaret.x + token.bounds.size.width + rightMargin > self.bounds.size.width){
+				sself->_numberOfLines++;
+				sself->_tokenCaret.x = (sself.numberOfLines > 1 ? hPadding : leftMargin);
+				sself->_tokenCaret.y += lineHeight;
 			}
 			
-			[token setFrame:(CGRect){_tokenCaret, token.bounds.size}];
-			_tokenCaret.x += token.bounds.size.width + 4;
+			[token setFrame:(CGRect){sself->_tokenCaret, token.bounds.size}];
+			sself->_tokenCaret.x += token.bounds.size.width + 4;
 			
-			if (self.bounds.size.width - _tokenCaret.x - rightMargin < 50){
-				_numberOfLines++;
-				_tokenCaret.x = (_numberOfLines > 1 ? hPadding : leftMargin);
-				_tokenCaret.y += lineHeight;
+			if (self.bounds.size.width - sself->_tokenCaret.x - rightMargin < 50){
+				sself->_numberOfLines++;
+				sself->_tokenCaret.x = (sself.numberOfLines > 1 ? hPadding : leftMargin);
+				sself->_tokenCaret.y += lineHeight;
 			}
 		}
 	}];
