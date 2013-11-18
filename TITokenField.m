@@ -254,11 +254,8 @@
 - (void)tokenFieldTextDidChange:(TITokenField *)field {
     [self resultsForSearchString:_tokenField.text];
     
-    if (_forcePickSearchResult) {
-        [self setSearchResultsVisible:YES];
-    } else {
-        [self setSearchResultsVisible:(_resultsArray.count > 0)];
-    }
+    if (_forcePickSearchResult) [self setSearchResultsVisible:YES];
+	else [self setSearchResultsVisible:(_resultsArray.count > 0)];
 }
 
 - (void)tokenFieldFrameWillChange:(TITokenField *)field {
@@ -582,10 +579,12 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 }
 
 - (void)didChangeText {
-	if (!self.text.length) {
-        [self setText:kTextEmpty];
-        [_placeHolderLabel setHidden:NO];
-    } else [_placeHolderLabel setHidden:YES];
+	if (!self.text.length)[self setText:kTextEmpty];
+	[self showOrHidePlaceHolderLabel];
+}
+
+- (void) showOrHidePlaceHolderLabel {
+	[_placeHolderLabel setHidden:!(([self.text isEqualToString:kTextEmpty]) && !_tokens.count)];
 }
 
 - (BOOL)canPerformAction:(SEL)action withSender:(id)sender {
@@ -628,7 +627,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 	
 	if (shouldAdd){
 		
-		[self becomeFirstResponder];
+		//[self becomeFirstResponder];
 		
 		[token addTarget:self action:@selector(tokenTouchDown:) forControlEvents:UIControlEventTouchDown];
 		[token addTarget:self action:@selector(tokenTouchUpInside:) forControlEvents:UIControlEventTouchUpInside];
@@ -641,7 +640,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 				[delegate tokenField:self didAddToken:token];
 			}
             
-            [_placeHolderLabel setHidden:YES];
+			[self showOrHidePlaceHolderLabel];
 		}
 		
 		[self setResultsModeEnabled:NO];
@@ -667,6 +666,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 			[delegate tokenField:self didRemoveToken:token];
 		}
 		
+		[self showOrHidePlaceHolderLabel];
 		[self setResultsModeEnabled:_forcePickSearchResult];
 	}
 }
