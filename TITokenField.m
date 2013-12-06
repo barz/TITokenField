@@ -347,16 +347,16 @@
 
     NSString * query = [self searchResultStringForRepresentedObject:sourceObject];
     NSString * querySubtitle = [self searchResultSubtitleForRepresentedObject:sourceObject];
-    if (!querySubtitle || !_searchSubtitles) querySubtitle = @"";
+    if (!querySubtitle || !self->_searchSubtitles) querySubtitle = @"";
     
     if ([query rangeOfString:searchString options:NSCaseInsensitiveSearch].location != NSNotFound ||
 				[querySubtitle rangeOfString:searchString options:NSCaseInsensitiveSearch].location != NSNotFound ||
-        (_forcePickSearchResult && searchString.length == 0)){
+        (self->_forcePickSearchResult && searchString.length == 0)){
 
       __block BOOL shouldAdd = ![resultsToAdd containsObject:sourceObject];
-      if (shouldAdd && !_showAlreadyTokenized){
+      if (shouldAdd && !self->_showAlreadyTokenized){
 
-        [_tokenField.tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx, BOOL *secondStop){
+        [self->_tokenField.tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx1, BOOL *secondStop){
           if ([token.representedObject isEqual:sourceObject]){
             shouldAdd = NO;
             *secondStop = YES;
