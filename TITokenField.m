@@ -38,6 +38,7 @@
 @synthesize forcePickSearchResult = _forcePickSearchResult;
 @synthesize shouldSortResults = _shouldSortResults;
 @synthesize shouldSearchInBackground = _shouldSearchInBackground;
+@synthesize permittedArrowDirections = _permittedArrowDirections;
 @synthesize tokenField = _tokenField;
 @synthesize resultsTable = _resultsTable;
 @synthesize contentView = _contentView;
@@ -66,14 +67,15 @@
 - (void)setup {
 	
 	[self setBackgroundColor:[UIColor clearColor]];
-	[self setDelaysContentTouches:YES];
+	[self setDelaysContentTouches:NO];
 	[self setMultipleTouchEnabled:NO];
 	
 	_showAlreadyTokenized = NO;
     _searchSubtitles = YES;
     _forcePickSearchResult = NO;
-  _shouldSortResults = YES;
-  _shouldSearchInBackground = NO;
+    _shouldSortResults = YES;
+    _shouldSearchInBackground = NO;
+    _permittedArrowDirections = UIPopoverArrowDirectionUp;
 	_resultsArray = [NSMutableArray array];
 	
     _tokenField = [self createTokenField];   // Hsoi 23-May-2012 - call -createTokenField instead of hard-coding in the creation. retained so I don't have to change other lines of code, to maintain existing code integrity.
@@ -228,6 +230,7 @@
 	
 	if (!cell) cell = [[UITableViewCell alloc] initWithStyle:(subtitle ? UITableViewCellStyleSubtitle : UITableViewCellStyleDefault) reuseIdentifier:CellIdentifier];
 	
+    [cell.imageView setImage:[self searchResultImageForRepresentedObject:representedObject]];
 	[cell.textLabel setText:[self searchResultStringForRepresentedObject:representedObject]];
 	[cell.detailTextLabel setText:subtitle];
 	
@@ -306,6 +309,15 @@
 	return nil;
 }
 
+- (UIImage *)searchResultImageForRepresentedObject:(id)object {
+    if ([_tokenField.delegate respondsToSelector:@selector(tokenField:searchResultImageForRepresentedObject:)]) {
+        return [_tokenField.delegate tokenField:_tokenField searchResultImageForRepresentedObject:object];
+    }
+    
+    return nil;
+}
+
+
 - (void)setSearchResultsVisible:(BOOL)visible {
 	if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad){
 		
@@ -320,23 +332,31 @@
 }
 
 - (void)resultsForSearchString:(NSString *)searchString {
-	
+
 	// The brute force searching method.
 	// Takes the input string and compares it against everything in the source array.
 	// If the source is massive, this could take some time.
 	// You could always subclass and override this if needed or do it on a background thread.
 	// GCD would be great for that.
-	
+
 	[_resultsArray removeAllObjects];
 	[_resultsTable reloadData];
-	
+
 	searchString = [searchString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-	
+
 	if (searchString.length || _forcePickSearchResult){
-        if (_shouldSearchInBackground) {
-          [self performSelectorInBackground:@selector(performSearch:) withObject:searchString];
+        if ([_tokenField.delegate respondsToSelector:@selector(tokenField:shouldUseCustomSearchForSearchString:)] && [_tokenField.delegate tokenField:_tokenField shouldUseCustomSearchForSearchString:searchString]) {
+            if ([_tokenField.delegate respondsToSelector:@selector(tokenField:performCustomSearchForSearchString:withCompletionHandler:)]) {
+                [_tokenField.delegate tokenField:_tokenField performCustomSearchForSearchString:searchString withCompletionHandler:^(NSArray *results) {
+                    [self searchDidFinish:results];
+                }];
+            }
         } else {
-          [self performSearch:searchString];
+            if (_shouldSearchInBackground) {
+                [self performSelectorInBackground:@selector(performSearch:) withObject:searchString];
+            } else {
+                [self performSearch:searchString];
+            }
         }
 	}
 }
@@ -368,16 +388,22 @@
     }
   }];
 
-  [_resultsArray addObjectsFromArray:resultsToAdd];
-  if (_resultsArray.count > 0) {
-    if (_shouldSortResults) {
-      [_resultsArray sortUsingComparator:^NSComparisonResult(id obj1, id obj2) {
-        return [[self searchResultStringForRepresentedObject:obj1] localizedCaseInsensitiveCompare:[self searchResultStringForRepresentedObject:obj2]];
-      }];
-    }
-    [self performSelectorOnMainThread:@selector(reloadResultsTable) withObject:nil waitUntilDone:YES];
-  }
+    [self searchDidFinish:resultsToAdd];
 }
+
+- (void)searchDidFinish:(NSArray *)results
+{
+    [_resultsArray addObjectsFromArray:results];
+    if (_resultsArray.count > 0) {
+        if (_shouldSortResults) {
+            [_resultsArray sortUsingComparator:^NSComparisonResult(id obj1, id obj2) {
+                return [[self searchResultStringForRepresentedObject:obj1] localizedCaseInsensitiveCompare:[self searchResultStringForRepresentedObject:obj2]];
+            }];
+        }
+        [self performSelectorOnMainThread:@selector(reloadResultsTable) withObject:nil waitUntilDone:YES];
+    }
+}
+
 
 -(void) reloadResultsTable {
   [_resultsTable setHidden:NO];
@@ -388,8 +414,10 @@
 	
     UITextPosition * position = [_tokenField positionFromPosition:_tokenField.beginningOfDocument offset:2];
 	
-	[_popoverController presentPopoverFromRect:[_tokenField caretRectForPosition:position] inView:_tokenField
-					 permittedArrowDirections:UIPopoverArrowDirectionUp animated:animated];
+	[_popoverController presentPopoverFromRect:[_tokenField caretRectForPosition:position]
+                                        inView:_tokenField
+					 permittedArrowDirections:[self permittedArrowDirections]
+                                      animated:animated];
 }
 
 #pragma mark Other
@@ -489,7 +517,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 	[self.layer setShadowRadius:12];
 	
 	[self setPromptText:@"To:"];
-	[self setText:kTextEmpty];
+    	[self setText:kTextEmpty];
 	
 	_internalDelegate = [[TITokenFieldInternalDelegate alloc] init];
 	[_internalDelegate setTokenField:self];
@@ -499,6 +527,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 	_editable = YES;
 	_removesTokensOnEndEditing = YES;
 	_tokenizingCharacters = [NSCharacterSet characterSetWithCharactersInString:@","];
+    _tokenLimit = -1;
 }
 
 #pragma mark Property Overrides
@@ -558,7 +587,9 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 }
 
 - (void)didBeginEditing {
-	[_tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx, BOOL *stop){[self addToken:token];}];
+    if (_removesTokensOnEndEditing) {
+        	[_tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx, BOOL *stop){[self addToken:token];}];
+    }
 }
 
 - (void)didEndEditing {
@@ -636,6 +667,19 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 	return nil;
 }
 
+- (void)addTokensWithTitleList:(NSString *)titleList {
+    if ([titleList length] > 0) {
+        self.text = titleList;
+        [self tokenizeText];
+    }
+}
+
+- (void)addTokensWithTitleArray:(NSArray *)titleArray {
+    for (NSString *title in titleArray) {
+        [self addTokenWithTitle:title];
+    }
+}
+
 - (void)addToken:(TIToken *)token {
 	
 	BOOL shouldAdd = YES;
@@ -653,7 +697,8 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 		
 		if (![_tokens containsObject:token]) {
 			[_tokens addObject:token];
-		
+            [self layoutTokensAnimated:YES];
+            
 			if ([delegate respondsToSelector:@selector(tokenField:didAddToken:)]){
 				[delegate tokenField:self didAddToken:token];
 			}
@@ -679,7 +724,8 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 		
 		[token removeFromSuperview];
 		[_tokens removeObject:token];
-		
+        [self layoutTokensAnimated:YES];
+
 		if ([delegate respondsToSelector:@selector(tokenField:didRemoveToken:)]){
 			[delegate tokenField:self didRemoveToken:token];
 		}
@@ -749,7 +795,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 	CGFloat leftMargin = self.leftViewWidth + 12;
 	CGFloat hPadding = 8;
 	CGFloat rightMargin = self.rightViewWidth + hPadding;
-	CGFloat lineHeight = self.font.lineHeight + topMargin + 5;
+	CGFloat lineHeight = ceilf(self.font.lineHeight) + topMargin + 5;
 	
 	_numberOfLines = 1;
 	_tokenCaret = (CGPoint){leftMargin, (topMargin - 1)};
@@ -781,7 +827,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 		}
 	}];
 	
-	return _tokenCaret.y + lineHeight;
+	return ceilf(_tokenCaret.y + lineHeight);
 }
 
 #pragma mark View Handlers
@@ -992,6 +1038,11 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 	if ([_delegate respondsToSelector:@selector(textField:shouldChangeCharactersInRange:replacementString:)]){
 		return [_delegate textField:textField shouldChangeCharactersInRange:range replacementString:string];
 	}
+    
+    if (_tokenField.tokenLimit!=-1 &&
+        [_tokenField.tokens count] >= _tokenField.tokenLimit) {
+        return NO;
+    }
 	
 	return YES;
 }
