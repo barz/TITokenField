@@ -7,6 +7,7 @@
 //
 
 #import "TITokenField.h"
+#import "NSString+BZExtensions.h"   // Hsoi 2013-08-19 - not ideal to use our own solution, but here we are.
 #import <QuartzCore/QuartzCore.h>
 
 @interface TITokenField ()
@@ -18,7 +19,7 @@
 //==========================================================
 
 @interface TITokenFieldView (Private)
-- (void)setup;
+//- (void)setup; // Hsoi 11-Jul-2012 - making it public so our subclass can invoke it
 - (NSString *)displayStringForRepresentedObject:(id)object;
 - (NSString *)searchResultStringForRepresentedObject:(id)object;
 - (void)setSearchResultsVisible:(BOOL)visible;
@@ -77,7 +78,7 @@
     _permittedArrowDirections = UIPopoverArrowDirectionUp;
 	_resultsArray = [NSMutableArray array];
 	
-	_tokenField = [[TITokenField alloc] initWithFrame:CGRectMake(0, 0, self.bounds.size.width, 42)];
+    _tokenField = [self createTokenField];   // Hsoi 23-May-2012 - call -createTokenField instead of hard-coding in the creation. retained so I don't have to change other lines of code, to maintain existing code integrity.
 	[_tokenField addTarget:self action:@selector(tokenFieldDidBeginEditing:) forControlEvents:UIControlEventEditingDidBegin];
 	[_tokenField addTarget:self action:@selector(tokenFieldDidEndEditing:) forControlEvents:UIControlEventEditingDidEnd];
 	[_tokenField addTarget:self action:@selector(tokenFieldTextDidChange:) forControlEvents:UIControlEventEditingChanged];
@@ -103,7 +104,15 @@
 		UITableViewController * tableViewController = [[UITableViewController alloc] initWithStyle:UITableViewStylePlain];
 		[tableViewController.tableView setDelegate:self];
 		[tableViewController.tableView setDataSource:self];
+        
+        // FIXME: Hsoi 2013-08-22 - This is my workaround for iOS7. Hopefully the original author will have their proper fix soon.
+        // Note: Apple's suggestion is to use UIViewController.preferredContentSize instead. I have no problem with that
+        // but as we don't presently have iPad support, it's not something I can really do or test. It's irrelevant to
+        // us right now. So for me, all I need to do is quiet down the compiler. Hence.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 		[tableViewController setContentSizeForViewInPopover:CGSizeMake(400, 400)];
+#pragma GCC diagnostic pop
 		
 		_resultsTable = tableViewController.tableView;
 		
@@ -336,7 +345,6 @@
 	searchString = [searchString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 
 	if (searchString.length || _forcePickSearchResult){
-
         if ([_tokenField.delegate respondsToSelector:@selector(tokenField:shouldUseCustomSearchForSearchString:)] && [_tokenField.delegate tokenField:_tokenField shouldUseCustomSearchForSearchString:searchString]) {
             if ([_tokenField.delegate respondsToSelector:@selector(tokenField:performCustomSearchForSearchString:withCompletionHandler:)]) {
                 [_tokenField.delegate tokenField:_tokenField performCustomSearchForSearchString:searchString withCompletionHandler:^(NSArray *results) {
@@ -359,16 +367,16 @@
 
     NSString * query = [self searchResultStringForRepresentedObject:sourceObject];
     NSString * querySubtitle = [self searchResultSubtitleForRepresentedObject:sourceObject];
-    if (!querySubtitle || !_searchSubtitles) querySubtitle = @"";
+    if (!querySubtitle || !self->_searchSubtitles) querySubtitle = @"";
     
     if ([query rangeOfString:searchString options:NSCaseInsensitiveSearch].location != NSNotFound ||
 				[querySubtitle rangeOfString:searchString options:NSCaseInsensitiveSearch].location != NSNotFound ||
-        (_forcePickSearchResult && searchString.length == 0)){
+        (self->_forcePickSearchResult && searchString.length == 0)){
 
       __block BOOL shouldAdd = ![resultsToAdd containsObject:sourceObject];
-      if (shouldAdd && !_showAlreadyTokenized){
+      if (shouldAdd && !self->_showAlreadyTokenized){
 
-        [_tokenField.tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx, BOOL *secondStop){
+        [self->_tokenField.tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx1, BOOL *secondStop){
           if ([token.representedObject isEqual:sourceObject]){
             shouldAdd = NO;
             *secondStop = YES;
@@ -414,12 +422,23 @@
 
 #pragma mark Other
 - (NSString *)description {
-	return [NSString stringWithFormat:@"<TITokenFieldView %p; Token count = %d>", self, self.tokenTitles.count];
+	return [NSString stringWithFormat:@"<TITokenFieldView %p; Token count = %lu>", self, (unsigned long)self.tokenTitles.count];
 }
 
 - (void)dealloc {
 	[self setDelegate:nil];
 }
+
+#pragma mark BarZ Additions
+// Hsoi 23-May-2012 - I hate to do this, but given the way the original author constructed things and how we need to do
+// a bit more customization outside of the author's planned structure well.... we have to hack some stuff.
+
+
+// Hsoi 23-May-2012 - creates our token field. Needed so our subclass can make its own token field.
+- (id)createTokenField {
+    return [[TITokenField alloc] initWithFrame:CGRectMake(0.0, 0.0, self.bounds.size.width, 42.0)];
+}
+
 
 @end
 
@@ -441,7 +460,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 @end
 
 @interface TITokenField (Private)
-- (void)setup;
+//- (void)setup; // Hsoi 11-Jul-2012 - making it public so our subclass can invoke it
 - (CGFloat)layoutTokensInternal;
 @end
 
@@ -594,7 +613,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 			CGFloat availableWidth = self.bounds.size.width - self.leftView.bounds.size.width - self.rightView.bounds.size.width;
 			
 			if (_tokens.count > 1 && untokSize.width > availableWidth){
-				untokenized = [NSString stringWithFormat:@"%d recipients", titles.count];
+				untokenized = [NSString stringWithFormat:@"%lu recipients", (unsigned long)titles.count];
 			}
 			
 		}
@@ -781,26 +800,29 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 	_numberOfLines = 1;
 	_tokenCaret = (CGPoint){leftMargin, (topMargin - 1)};
 	
+    __weak TITokenField* wself = self;
 	[_tokens enumerateObjectsUsingBlock:^(TIToken * token, NSUInteger idx, BOOL *stop){
 		
-		[token setFont:self.font];
-		[token setMaxWidth:(self.bounds.size.width - rightMargin - (_numberOfLines > 1 ? hPadding : leftMargin))];
+        TITokenField* sself = wself;
+        
+		[token setFont:sself.font];
+		[token setMaxWidth:(sself.bounds.size.width - rightMargin - (sself.numberOfLines > 1 ? hPadding : leftMargin))];
 		
 		if (token.superview){
 			
-			if (_tokenCaret.x + token.bounds.size.width + rightMargin > self.bounds.size.width){
-				_numberOfLines++;
-				_tokenCaret.x = (_numberOfLines > 1 ? hPadding : leftMargin);
-				_tokenCaret.y += lineHeight;
+			if (sself->_tokenCaret.x + token.bounds.size.width + rightMargin > self.bounds.size.width){
+				sself->_numberOfLines++;
+				sself->_tokenCaret.x = (sself.numberOfLines > 1 ? hPadding : leftMargin);
+				sself->_tokenCaret.y += lineHeight;
 			}
 			
-			[token setFrame:(CGRect){_tokenCaret, token.bounds.size}];
-			_tokenCaret.x += token.bounds.size.width + 4;
+			[token setFrame:(CGRect){sself->_tokenCaret, token.bounds.size}];
+			sself->_tokenCaret.x += token.bounds.size.width + 4;
 			
-			if (self.bounds.size.width - _tokenCaret.x - rightMargin < 50){
-				_numberOfLines++;
-				_tokenCaret.x = (_numberOfLines > 1 ? hPadding : leftMargin);
-				_tokenCaret.y += lineHeight;
+			if (self.bounds.size.width - sself->_tokenCaret.x - rightMargin < 50){
+				sself->_numberOfLines++;
+				sself->_tokenCaret.x = (sself.numberOfLines > 1 ? hPadding : leftMargin);
+				sself->_tokenCaret.y += lineHeight;
 			}
 		}
 	}];
@@ -1055,7 +1077,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 CGFloat const hTextPadding = 14;
 CGFloat const vTextPadding = 8;
 CGFloat const kDisclosureThickness = 2.5;
-UILineBreakMode const kLineBreakMode = UILineBreakModeTailTruncation;
+NSLineBreakMode const kLineBreakMode = NSLineBreakByTruncatingTail;
 
 @interface TIToken (Private)
 CGPathRef CGPathCreateTokenPath(CGSize size, BOOL innerPath);
@@ -1169,7 +1191,7 @@ CGPathRef CGPathCreateDisclosureIndicatorPath(CGPoint arrowPointFront, CGFloat h
 	}
 }
 
-#pragma Tint Color Convenience
+#pragma mark Tint Color Convenience
 
 + (UIColor *)blueTintColor {
 	return [UIColor colorWithRed:0.216 green:0.373 blue:0.965 alpha:1];
