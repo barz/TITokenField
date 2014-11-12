@@ -40,10 +40,14 @@
 - (BOOL)tokenField:(TITokenField *)tokenField willRemoveToken:(TIToken *)token;
 - (void)tokenField:(TITokenField *)tokenField didRemoveToken:(TIToken *)token;
 
+- (BOOL)tokenField:(TITokenField *)field shouldUseCustomSearchForSearchString:(NSString *)searchString;
+- (void)tokenField:(TITokenField *)field performCustomSearchForSearchString:(NSString *)searchString withCompletionHandler:(void (^)(NSArray *results))completionHandler;
+
 - (void)tokenField:(TITokenField *)tokenField didFinishSearch:(NSArray *)matches;
 - (NSString *)tokenField:(TITokenField *)tokenField displayStringForRepresentedObject:(id)object;
 - (NSString *)tokenField:(TITokenField *)tokenField searchResultStringForRepresentedObject:(id)object;
 - (NSString *)tokenField:(TITokenField *)tokenField searchResultSubtitleForRepresentedObject:(id)object;
+- (UIImage *)tokenField:(TITokenField *)tokenField searchResultImageForRepresentedObject:(id)object;
 - (UITableViewCell *)tokenField:(TITokenField *)tokenField resultsTableView:(UITableView *)tableView cellForRepresentedObject:(id)object;
 - (CGFloat)tokenField:(TITokenField *)tokenField resultsTableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath;
 @end
@@ -60,6 +64,7 @@
 @property (nonatomic, assign) BOOL forcePickSearchResult;
 @property (nonatomic, assign) BOOL shouldSortResults;
 @property (nonatomic, assign) BOOL shouldSearchInBackground;
+@property (nonatomic, assign) UIPopoverArrowDirection permittedArrowDirections;
 @property (nonatomic, readonly) TITokenField * tokenField;
 @property (nonatomic, readonly) UIView * separator;
 @property (nonatomic, readonly) UITableView * resultsTable;
@@ -91,6 +96,7 @@ typedef enum {
 @property (nonatomic, assign) BOOL resultsModeEnabled;
 @property (nonatomic, assign) BOOL removesTokensOnEndEditing;
 @property (nonatomic, readonly) int numberOfLines;
+@property (nonatomic) int tokenLimit;
 @property (nonatomic, strong) NSCharacterSet * tokenizingCharacters;
 
 - (void)setup; // Hsoi 11-Jul-2012 - making it public so our subclass can invoke it
@@ -98,6 +104,8 @@ typedef enum {
 - (void)addToken:(TIToken *)title;
 - (TIToken *)addTokenWithTitle:(NSString *)title;
 - (TIToken *)addTokenWithTitle:(NSString *)title representedObject:(id)object;
+- (void)addTokensWithTitleList:(NSString *)titleList;
+- (void)addTokensWithTitleArray:(NSArray *)titleArray;
 - (void)removeToken:(TIToken *)token;
 - (void)removeAllTokens;
 
