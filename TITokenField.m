@@ -609,8 +609,19 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 			
 			NSArray * titles = self.tokenTitles;
 			untokenized = [titles componentsJoinedByString:@", "];
-			
-			CGSize untokSize = [untokenized sizeWithFont:[UIFont systemFontOfSize:14]];
+
+            CGSize untokSize;
+            UIFont* font = [UIFont systemFontOfSize:14];
+            if ([untokenized respondsToSelector:@selector(sizeWithAttributes:)]) {
+                untokSize = [untokenized sizeWithAttributes:@{NSFontAttributeName:font}];
+            }
+            else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+                untokSize = [untokenized sizeWithFont:font];
+#pragma GCC diagnostic pop
+            }
+            
 			CGFloat availableWidth = self.bounds.size.width - self.leftView.bounds.size.width - self.rightView.bounds.size.width;
 			
 			if (_tokens.count > 1 && untokSize.width > availableWidth){
@@ -1041,7 +1052,7 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
 	}
     
     if (_tokenField.tokenLimit!=-1 &&
-        [_tokenField.tokens count] >= _tokenField.tokenLimit) {
+        (NSInteger)[_tokenField.tokens count] >= _tokenField.tokenLimit) {
         return NO;
     }
 	
@@ -1215,9 +1226,22 @@ CGPathRef CGPathCreateDisclosureIndicatorPath(CGPoint arrowPointFront, CGFloat h
 		CGPathRelease(CGPathCreateDisclosureIndicatorPath(CGPointZero, _font.pointSize, kDisclosureThickness, &accessoryWidth));
 		accessoryWidth += floorf(hTextPadding / 2);
 	}
-	
-	CGSize titleSize = [_title sizeWithFont:_font forWidth:(_maxWidth - hTextPadding - accessoryWidth) lineBreakMode:kLineBreakMode];
-	CGFloat height = floorf(titleSize.height + vTextPadding);
+
+    CGSize titleSize;
+    if ([_title respondsToSelector:@selector(boundingRectWithSize:options:attributes:context:)]) {
+        titleSize = [_title boundingRectWithSize:CGSizeMake((_maxWidth - hTextPadding - accessoryWidth), CGFLOAT_MAX)
+                                         options:NSStringDrawingUsesLineFragmentOrigin
+                                      attributes:@{NSFontAttributeName:_font}
+                                         context:nil].size;
+    }
+    else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        titleSize = [_title sizeWithFont:_font forWidth:(_maxWidth - hTextPadding - accessoryWidth) lineBreakMode:kLineBreakMode];
+#pragma GCC diagnostic pop
+    }
+
+    CGFloat height = floorf(titleSize.height + vTextPadding);
 	
     return (CGSize){MAX(floorf(titleSize.width + hTextPadding + accessoryWidth), height - 3), height};
 }
@@ -1324,14 +1348,40 @@ CGPathRef CGPathCreateDisclosureIndicatorPath(CGPoint arrowPointFront, CGFloat h
 	}
 	
 	CGColorSpaceRelease(colorspace);
-	
-	CGSize titleSize = [_title sizeWithFont:_font forWidth:(_maxWidth - hTextPadding - accessoryWidth) lineBreakMode:kLineBreakMode];
+
+    CGSize titleSize;
+    if ([_title respondsToSelector:@selector(boundingRectWithSize:options:attributes:context:)]) {
+        titleSize = [_title boundingRectWithSize:CGSizeMake((_maxWidth - hTextPadding - accessoryWidth), CGFLOAT_MAX)
+                                         options:NSStringDrawingUsesLineFragmentOrigin
+                                      attributes:@{NSFontAttributeName:_font}
+                                         context:nil].size;
+    }
+    else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        titleSize = [_title sizeWithFont:_font forWidth:(_maxWidth - hTextPadding - accessoryWidth) lineBreakMode:kLineBreakMode];
+#pragma GCC diagnostic pop
+    }
+    
 	CGFloat vPadding = floor((self.bounds.size.height - titleSize.height) / 2);
 	CGFloat titleWidth = ceilf(self.bounds.size.width - hTextPadding - accessoryWidth);
 	CGRect textBounds = CGRectMake(floorf(hTextPadding / 2), vPadding - 1, titleWidth, floorf(self.bounds.size.height - (vPadding * 2)));
 	
 	CGContextSetFillColorWithColor(context, (drawHighlighted ? _highlightedTextColor : _textColor).CGColor);
-	[_title drawInRect:textBounds withFont:_font lineBreakMode:kLineBreakMode];
+
+    if ([_title respondsToSelector:@selector(drawInRect:withAttributes:)]) {
+        NSMutableParagraphStyle*    paragraphStyle = [[NSMutableParagraphStyle alloc] init];
+        paragraphStyle.lineBreakMode = kLineBreakMode;
+        paragraphStyle.alignment = NSTextAlignmentLeft;
+        
+        [_title drawInRect:textBounds withAttributes:@{NSFontAttributeName:_font, NSParagraphStyleAttributeName:paragraphStyle}];
+    }
+    else {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+        [_title drawInRect:textBounds withFont:_font lineBreakMode:kLineBreakMode];
+#pragma GCC diagnostic pop
+    }
 }
 
 CGPathRef CGPathCreateTokenPath(CGSize size, BOOL innerPath) {
