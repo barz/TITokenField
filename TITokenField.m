@@ -616,6 +616,8 @@ NSString * const kTextHidden = @"\u200D"; // Zero-Width Joiner
             UIFont* font = [UIFont systemFontOfSize:14];
             if ([untokenized respondsToSelector:@selector(sizeWithAttributes:)]) {
                 untokSize = [untokenized sizeWithAttributes:@{NSFontAttributeName:font}];
+                untokSize.height = ceil(untokSize.height);
+                untokSize.width = ceil(untokSize.width);
             }
             else {
 #pragma GCC diagnostic push
@@ -1235,6 +1237,8 @@ CGPathRef CGPathCreateDisclosureIndicatorPath(CGPoint arrowPointFront, CGFloat h
                                          options:NSStringDrawingUsesLineFragmentOrigin
                                       attributes:@{NSFontAttributeName:_font}
                                          context:nil].size;
+        titleSize.height = ceil(titleSize.height);
+        titleSize.width = ceil(titleSize.width);
     }
     else {
 #pragma GCC diagnostic push
@@ -1357,6 +1361,8 @@ CGPathRef CGPathCreateDisclosureIndicatorPath(CGPoint arrowPointFront, CGFloat h
                                          options:NSStringDrawingUsesLineFragmentOrigin
                                       attributes:@{NSFontAttributeName:_font}
                                          context:nil].size;
+        titleSize.height = ceil(titleSize.height);
+        titleSize.width = ceil(titleSize.width);
     }
     else {
 #pragma GCC diagnostic push
